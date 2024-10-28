@@ -1,0 +1,127 @@
+.container {
+  min-height: 100vh;
+  padding: 0 0.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background-color: #f5f5f7;
+}
+
+.main {
+  padding: 5rem 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  max-width: 800px;
+}
+
+.title {
+  margin: 0;
+  line-height: 1.15;
+  font-size: 4rem;
+  text-align: center;
+  color: #1d1d1f;
+  font-weight: 700;
+}
+
+.chatContainer {
+  width: 100%;
+  margin-top: 3rem;
+  background-color: white;
+  border-radius: 18px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.chatOutput {
+  height: 400px;
+  padding: 1.5rem;
+  overflow-y: auto;
+  border-bottom: 1px solid #d2d2d7;
+}
+
+.inputContainer {
+  display: flex;
+  padding: 1rem;
+}
+
+.userInput {
+  flex-grow: 1;
+  padding: 0.75rem;
+  font-size: 1rem;
+  border: none;
+  border-radius: 10px;
+  background-color: #f5f5f7;
+  margin-right: 0.5rem;
+}
+
+.sendButton {
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  color: white;
+  background-color: #0071e3;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.sendButton:hover {
+  background-color: #0077ed;
+}
+
+.footer {
+  width: 100%;
+  height: 100px;
+  border-top: 1px solid #eaeaea;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.footer p {
+  color: #86868b;
+}
+
+.userMessage {
+  background-color: #e1f5fe;
+  padding: 10px;
+  border-radius: 10px;
+  margin-bottom: 10px;
+  align-self: flex-end;
+}
+
+.aiMessage {
+  background-color: #f0f0f0;
+  padding: 15px;
+  border-radius: 10px;
+  margin-bottom: 10px;
+  align-self: flex-start;
+}
+
+.aiMessage p {
+  margin: 0 0 10px 0;
+}
+
+.aiMessage ul, .aiMessage ol {
+  margin: 0 0 10px 0;
+  padding-left: 20px;
+}
+
+.aiMessage pre {
+  background-color: #e0e0e0;
+  padding: 10px;
+  border-radius: 5px;
+  overflow-x: auto;
+}
+
+.aiMessage code {
+  font-family: monospace;
+  background-color: #e0e0e0;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
