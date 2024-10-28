@@ -13,55 +13,50 @@ interface Message {
 export default function Home() {
   const [input, setInput] = useState('')
   const [chatHistory, setChatHistory] = useState<Message[]>([])
+  const [isLoading, setIsLoading] = useState(false)
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!input.trim()) return
+    if (!input.trim() || isLoading) return
 
     const newMessage: Message = { role: 'user', content: input }
     setChatHistory(prevHistory => [...prevHistory, newMessage])
-    setInput('') // 立即清空输入框
+    setInput('')
+    setIsLoading(true)
 
     try {
-      let apiResponse = null;
-      const maxRetries = 3;
-      let retryCount = 0;
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 60000);
 
-      while (retryCount < maxRetries) {
-        try {
-          // 修改 API 路径
-          const apiPath = '/botfreechat/api/chat';
-          apiResponse = await axios.post(apiPath, {
-            messages: [...chatHistory, newMessage],
-          }, {
-            timeout: 60000,
-            headers: {
-              'Content-Type': 'application/json'
-            }
-          });
-          break;
-        } catch (retryError) {
-          retryCount++;
-          console.log(`Retry attempt ${retryCount}`);
-          if (retryCount === maxRetries) throw retryError;
-          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+      const response = await axios.post('/api/chat', {
+        messages: [...chatHistory, newMessage],
+      }, {
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json'
         }
-      }
+      });
 
-      if (!apiResponse?.data?.choices?.[0]?.message) {
+      clearTimeout(timeout);
+
+      if (response.data.choices?.[0]?.message) {
+        const aiResponse: Message = response.data.choices[0].message;
+        setChatHistory(prevHistory => [...prevHistory, aiResponse]);
+      } else {
         throw new Error('Invalid response format');
       }
-
-      const aiResponse: Message = apiResponse.data.choices[0].message;
-      setChatHistory(prevHistory => [...prevHistory, aiResponse]);
     } catch (error) {
       console.error('Error details:', error);
       let errorMessage = '抱歉，发生了错误。';
       
       if (axios.isAxiosError(error)) {
-        errorMessage += ` ${error.message}`;
-        if (error.response?.data?.error) {
-          errorMessage += ` (${error.response.data.error})`;
+        if (error.code === 'ERR_CANCELED') {
+          errorMessage = '请求超时，请重试。';
+        } else {
+          errorMessage += ` ${error.message}`;
+          if (error.response?.data?.error) {
+            errorMessage += ` (${error.response.data.error})`;
+          }
         }
       }
 
@@ -69,6 +64,8 @@ export default function Home() {
         role: 'assistant',
         content: errorMessage
       }]);
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -88,6 +85,11 @@ export default function Home() {
                 )}
               </div>
             ))}
+            {isLoading && (
+              <div className={styles.aiMessage}>
+                <p>正在思考...</p>
+              </div>
+            )}
           </div>
           
           <form onSubmit={handleSubmit} className={styles.inputContainer}>
@@ -97,8 +99,15 @@ export default function Home() {
               onChange={(e) => setInput(e.target.value)}
               className={styles.userInput} 
               placeholder="输入您的问题..."
+              disabled={isLoading}
             />
-            <button type="submit" className={styles.sendButton}>发送</button>
+            <button 
+              type="submit" 
+              className={styles.sendButton}
+              disabled={isLoading}
+            >
+              {isLoading ? '发送中...' : '发送'}
+            </button>
           </form>
         </div>
       </main>
