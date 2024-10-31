@@ -1,9 +1,6 @@
 import { NextResponse } from 'next/server';
 import axios, { AxiosError } from 'axios';
 
-export const runtime = 'edge'; // 使用 Edge Runtime
-export const maxDuration = 300; // 设置最大执行时间为300秒
-
 export async function POST(request: Request) {
   const headers = {
     'Access-Control-Allow-Origin': '*',
@@ -23,28 +20,40 @@ export async function POST(request: Request) {
       );
     }
 
+    console.log('Sending request to Deepseek API with messages:', messages);
+
     const response = await axios.post(
       'https://api.deepseek.com/v1/chat/completions',
       {
         model: 'deepseek-chat',
         messages,
         temperature: 0.7,
-        max_tokens: 2000,
-        timeout: 120 // 添加超时设置
+        max_tokens: 2000
       },
       {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${apiKey}`
         },
-        timeout: 120000, // 120秒超时
-        validateStatus: (status) => status < 500 // 只对500以上的错误抛出异常
+        timeout: 30000, // 减少超时时间到30秒
+        validateStatus: null // 允许所有状态码
       }
     );
 
+    console.log('Received response from Deepseek API:', response.data);
+
+    if (!response.data || !response.data.choices) {
+      throw new Error('Invalid response format from Deepseek API');
+    }
+
     return NextResponse.json(response.data, { headers });
   } catch (error) {
-    console.error('API Error:', error);
+    console.error('Detailed API Error:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+      response: error.response?.data
+    });
 
     if (error instanceof AxiosError) {
       const status = error.response?.status || 500;
@@ -57,12 +66,16 @@ export async function POST(request: Request) {
           message: errorMessage,
           details: error.response?.data
         },
-        { status, headers }
+        { status: 500, headers } // 始终返回500状态码以保持一致性
       );
     }
 
     return NextResponse.json(
-      { error: String(error) },
+      { 
+        error: 'Internal Server Error',
+        message: String(error),
+        timestamp: new Date().toISOString()
+      },
       { status: 500, headers }
     );
   }
