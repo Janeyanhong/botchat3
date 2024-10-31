@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import axios, { AxiosError } from 'axios';
 
+export const runtime = 'edge'; // 使用 Edge Runtime
+export const maxDuration = 300; // 设置最大执行时间为300秒
+
 export async function POST(request: Request) {
-  // 添加 CORS 头
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -11,61 +13,51 @@ export async function POST(request: Request) {
 
   try {
     const { messages } = await request.json();
-    
-    // 检查环境变量
     const apiKey = process.env.NEXT_PUBLIC_DEEPSEEK_API_KEY;
+    
     if (!apiKey) {
       console.error('API key is missing');
-      throw new Error('API key is not configured');
+      return NextResponse.json(
+        { error: 'API key is not configured' },
+        { status: 500, headers }
+      );
     }
 
-    let apiResponse = null;
-    const maxRetries = 3;
-    let retryCount = 0;
-
-    while (retryCount < maxRetries) {
-      try {
-        apiResponse = await axios.post(
-          'https://api.deepseek.com/v1/chat/completions',
-          {
-            model: 'deepseek-chat',
-            messages,
-            temperature: 0.7,
-            max_tokens: 2000
-          },
-          {
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${apiKey}`
-            },
-            timeout: 60000
-          }
-        );
-        break; // 如果请求成功，跳出循环
-      } catch (retryError) {
-        retryCount++;
-        if (retryCount === maxRetries) throw retryError;
-        await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+    const response = await axios.post(
+      'https://api.deepseek.com/v1/chat/completions',
+      {
+        model: 'deepseek-chat',
+        messages,
+        temperature: 0.7,
+        max_tokens: 2000,
+        timeout: 120 // 添加超时设置
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        timeout: 120000, // 120秒超时
+        validateStatus: (status) => status < 500 // 只对500以上的错误抛出异常
       }
-    }
+    );
 
-    if (!apiResponse) {
-      throw new Error('Failed to get response after retries');
-    }
-
-    return NextResponse.json(apiResponse.data, { headers });
+    return NextResponse.json(response.data, { headers });
   } catch (error) {
     console.error('API Error:', error);
 
     if (error instanceof AxiosError) {
+      const status = error.response?.status || 500;
+      const errorMessage = error.response?.data?.error || error.message;
+      
       return NextResponse.json(
         {
           error: 'Error calling Deepseek API',
-          status: error.response?.status,
-          message: error.message,
+          status,
+          message: errorMessage,
           details: error.response?.data
         },
-        { status: error.response?.status || 500, headers }
+        { status, headers }
       );
     }
 
