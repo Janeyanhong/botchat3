@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 
+export const runtime = 'edge';
+
 export async function POST(request: Request) {
   const headers = {
     'Access-Control-Allow-Origin': '*',
@@ -25,19 +27,23 @@ export async function POST(request: Request) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-        ...headers
+        'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
         model: 'deepseek-chat',
         messages,
         temperature: 0.7,
         max_tokens: 2000
-      })
+      }),
+      cf: {
+        cacheTtl: 0,
+        cacheEverything: false
+      }
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const errorData = await response.text();
+      throw new Error(`HTTP error! status: ${response.status}, body: ${errorData}`);
     }
 
     const data = await response.json();
@@ -47,28 +53,28 @@ export async function POST(request: Request) {
       throw new Error('Invalid response format from Deepseek API');
     }
 
-    return NextResponse.json(data, { headers });
+    return new NextResponse(JSON.stringify(data), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        ...headers
+      }
+    });
   } catch (error: unknown) {
     console.error('API Error:', error);
 
-    if (error instanceof Error) {
-      return NextResponse.json(
-        {
-          error: 'Error calling Deepseek API',
-          message: error.message,
-          timestamp: new Date().toISOString()
-        },
-        { status: 500, headers }
-      );
-    }
+    const errorResponse = {
+      error: 'Error calling Deepseek API',
+      message: error instanceof Error ? error.message : String(error),
+      timestamp: new Date().toISOString()
+    };
 
-    return NextResponse.json(
-      { 
-        error: 'Internal Server Error',
-        message: String(error),
-        timestamp: new Date().toISOString()
-      },
-      { status: 500, headers }
-    );
+    return new NextResponse(JSON.stringify(errorResponse), {
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        ...headers
+      }
+    });
   }
 }
