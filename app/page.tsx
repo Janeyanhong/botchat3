@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, FormEvent } from 'react'
+import { useState, FormEvent, useEffect } from 'react'
 import axios from 'axios'
 import ReactMarkdown from 'react-markdown'
 import styles from '../styles/Home.module.css'
@@ -14,6 +14,19 @@ export default function Home() {
   const [input, setInput] = useState('')
   const [chatHistory, setChatHistory] = useState<Message[]>([])
   const [isLoading, setIsLoading] = useState(false)
+
+  useEffect(() => {
+    window.addEventListener('error', (e) => {
+      if (e.message.includes('tracking') || e.message.includes('snowflake')) {
+        e.preventDefault();
+        return false;
+      }
+    });
+
+    return () => {
+      window.removeEventListener('error', () => {});
+    };
+  }, []);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -34,7 +47,8 @@ export default function Home() {
         signal: controller.signal,
         headers: {
           'Content-Type': 'application/json'
-        }
+        },
+        timeout: 60000
       });
 
       clearTimeout(timeout);
