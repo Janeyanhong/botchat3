@@ -4,6 +4,7 @@ export const runtime = 'edge';
 
 export async function POST(request: Request) {
   const headers = {
+    'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
@@ -15,13 +16,18 @@ export async function POST(request: Request) {
     
     if (!apiKey) {
       console.error('API key is missing');
-      return NextResponse.json(
-        { error: 'API key is not configured' },
+      return new NextResponse(
+        JSON.stringify({ error: 'API key is not configured' }),
         { status: 500, headers }
       );
     }
 
-    console.log('Sending request to Deepseek API with messages:', messages);
+    const requestBody = JSON.stringify({
+      model: 'deepseek-chat',
+      messages,
+      temperature: 0.7,
+      max_tokens: 2000
+    });
 
     const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
       method: 'POST',
@@ -29,52 +35,44 @@ export async function POST(request: Request) {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`
       },
-      body: JSON.stringify({
-        model: 'deepseek-chat',
-        messages,
-        temperature: 0.7,
-        max_tokens: 2000
-      }),
-      cf: {
-        cacheTtl: 0,
-        cacheEverything: false
-      }
+      body: requestBody
     });
+
+    const responseData = await response.json();
 
     if (!response.ok) {
-      const errorData = await response.text();
-      throw new Error(`HTTP error! status: ${response.status}, body: ${errorData}`);
+      console.error('API Response Error:', responseData);
+      return new NextResponse(
+        JSON.stringify({
+          error: 'Deepseek API error',
+          details: responseData.error || 'Unknown error'
+        }),
+        { status: response.status, headers }
+      );
     }
 
-    const data = await response.json();
-    console.log('Received response from Deepseek API:', data);
-
-    if (!data || !data.choices) {
-      throw new Error('Invalid response format from Deepseek API');
+    if (!responseData.choices?.[0]?.message) {
+      console.error('Invalid API Response:', responseData);
+      return new NextResponse(
+        JSON.stringify({ error: 'Invalid response format from API' }),
+        { status: 500, headers }
+      );
     }
 
-    return new NextResponse(JSON.stringify(data), {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        ...headers
-      }
-    });
-  } catch (error: unknown) {
+    return new NextResponse(
+      JSON.stringify(responseData),
+      { status: 200, headers }
+    );
+
+  } catch (error) {
     console.error('API Error:', error);
-
-    const errorResponse = {
-      error: 'Error calling Deepseek API',
-      message: error instanceof Error ? error.message : String(error),
-      timestamp: new Date().toISOString()
-    };
-
-    return new NextResponse(JSON.stringify(errorResponse), {
-      status: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        ...headers
-      }
-    });
+    return new NextResponse(
+      JSON.stringify({
+        error: 'Internal server error',
+        message: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      }),
+      { status: 500, headers }
+    );
   }
 }
