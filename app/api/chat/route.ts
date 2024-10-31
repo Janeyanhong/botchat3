@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import axios, { AxiosError } from 'axios';
 
 export async function POST(request: Request) {
   const headers = {
@@ -22,51 +21,44 @@ export async function POST(request: Request) {
 
     console.log('Sending request to Deepseek API with messages:', messages);
 
-    const response = await axios.post(
-      'https://api.deepseek.com/v1/chat/completions',
-      {
+    const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+        ...headers
+      },
+      body: JSON.stringify({
         model: 'deepseek-chat',
         messages,
         temperature: 0.7,
         max_tokens: 2000
-      },
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        timeout: 30000, // 减少超时时间到30秒
-        validateStatus: null // 允许所有状态码
-      }
-    );
+      })
+    });
 
-    console.log('Received response from Deepseek API:', response.data);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
 
-    if (!response.data || !response.data.choices) {
+    const data = await response.json();
+    console.log('Received response from Deepseek API:', data);
+
+    if (!data || !data.choices) {
       throw new Error('Invalid response format from Deepseek API');
     }
 
-    return NextResponse.json(response.data, { headers });
-  } catch (error) {
-    console.error('Detailed API Error:', {
-      name: error.name,
-      message: error.message,
-      stack: error.stack,
-      response: error.response?.data
-    });
+    return NextResponse.json(data, { headers });
+  } catch (error: unknown) {
+    console.error('API Error:', error);
 
-    if (error instanceof AxiosError) {
-      const status = error.response?.status || 500;
-      const errorMessage = error.response?.data?.error || error.message;
-      
+    if (error instanceof Error) {
       return NextResponse.json(
         {
           error: 'Error calling Deepseek API',
-          status,
-          message: errorMessage,
-          details: error.response?.data
+          message: error.message,
+          timestamp: new Date().toISOString()
         },
-        { status: 500, headers } // 始终返回500状态码以保持一致性
+        { status: 500, headers }
       );
     }
 
